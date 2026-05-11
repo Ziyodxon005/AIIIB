@@ -7,6 +7,7 @@ export class GeminiLiveClient {
         this.onOpen = null;
         this.onClose = null;
         this.onError = null;
+        this.onTurnComplete = null;
     }
 
     connect(systemInstruction, voiceName = 'Kore') {
@@ -125,6 +126,9 @@ export class GeminiLiveClient {
                     }
                 }
             }
+        }
+        if (response.serverContent && response.serverContent.turnComplete) {
+            if (this.onTurnComplete) this.onTurnComplete();
         }
     }
 

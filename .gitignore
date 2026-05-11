@@ -3,6 +3,12 @@
 .env.local
 .env.*.local
 
+# Reference files (not part of project)
+/AudioStreamer.js
+/GeminiLiveClient.js
+/useGeminiLive.js
+/ASOSIY.txt
+
 # Logs
 logs
 *.log

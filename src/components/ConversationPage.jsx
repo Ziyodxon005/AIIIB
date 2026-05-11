@@ -1,10 +1,9 @@
 import React, { useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import HologramStage from './HologramStage';
 import { useGeminiLive } from '../hooks/useGeminiLive';
 import { PERSONAS } from '../utils/personas';
-import { PERSONA_DATA } from './WelcomePage';
-import { Mic, MicOff, Eye, EyeOff, ArrowLeft, X } from 'lucide-react';
+import { Mic, MicOff, Eye, EyeOff, X, ArrowLeft } from 'lucide-react';
 import Particles from './Particles';
 
 const ConversationPage = ({ personaId, onBack }) => {
@@ -22,17 +21,16 @@ const ConversationPage = ({ personaId, onBack }) => {
         personaState
     } = useGeminiLive();
 
-    const persona = PERSONAS[personaId];
-    const personaInfo = PERSONA_DATA.find(p => p.id === personaId);
+    const persona = PERSONAS[personaId] || PERSONAS['general'];
 
     // Auto-connect when page opens (run once on mount)
     useEffect(() => {
         if (apiKey && persona) {
-            console.log('ConversationPage: Connecting to persona...');
+            console.log('ConversationPage: Connecting to IIB AI...');
             connect(apiKey, persona.systemInstruction, persona.voice);
         }
 
-        // Cleanup on unmount ONLY - stop everything
+        // Cleanup on unmount ONLY
         return () => {
             console.log('ConversationPage: Unmounting, stopping all...');
             disconnect();
@@ -59,16 +57,16 @@ const ConversationPage = ({ personaId, onBack }) => {
                 <motion.button
                     className="back-button"
                     onClick={handleDisconnect}
-                    whileHover={{ scale: 1.1 }}
+                    whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                 >
-                    <ArrowLeft size={20} />
+                    <ArrowLeft size={18} />
                     <span>Orqaga</span>
                 </motion.button>
 
                 <div className="conversation-title">
-                    <h2 className="gold-calligraphy">{personaInfo?.name}</h2>
-                    <p>{personaInfo?.role}</p>
+                    <h2 className="gold-calligraphy">ANDIJON VILOYATI IIB</h2>
+                    <p>Sun'iy Intellekt Maslahat Tizimi</p>
                 </div>
 
                 <div className={`status-badge ${isLive ? 'live' : 'offline'}`}>
@@ -85,7 +83,7 @@ const ConversationPage = ({ personaId, onBack }) => {
                     isLive={isLive}
                     isVisionEnabled={isVisionEnabled}
                     videoRef={videoRef}
-                    personaName={personaInfo?.name || ''}
+                    personaName={persona?.name || 'IIB Maslahatchisi'}
                     personaState={personaState}
                 />
             </div>
@@ -96,7 +94,7 @@ const ConversationPage = ({ personaId, onBack }) => {
                 <motion.button
                     onClick={toggleVision}
                     className={`btn-icon ${isVisionEnabled ? 'active' : ''}`}
-                    title="Meni Ko'ring (15 soniya)"
+                    title="Kamera ko'rinishi (15 soniya)"
                     whileTap={{ scale: 0.95 }}
                     disabled={!isLive}
                     style={{ opacity: isLive ? 1 : 0.5 }}
@@ -139,4 +137,3 @@ const ConversationPage = ({ personaId, onBack }) => {
 };
 
 export default ConversationPage;
-

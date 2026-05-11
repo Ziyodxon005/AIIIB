@@ -51,7 +51,7 @@ const WelcomePage = ({ onSelectPersona }) => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8 }}
             >
-                <h1 className="gold-calligraphy text-4xl mb-2">MEROS AI</h1>
+                <h1 className="gold-calligraphy text-4xl mb-2">AIIB</h1>
                 <p className="welcome-subtitle">Buyuk Ajdodlarimiz Bilan Muloqot</p>
             </motion.div>
 

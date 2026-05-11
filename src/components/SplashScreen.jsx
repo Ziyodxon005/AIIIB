@@ -5,7 +5,7 @@ const SplashScreen = ({ onComplete }) => {
     React.useEffect(() => {
         const timer = setTimeout(() => {
             onComplete();
-        }, 10000); // 10 soniya
+        }, 8000); // 8 soniya
 
         return () => clearTimeout(timer);
     }, [onComplete]);
@@ -21,39 +21,55 @@ const SplashScreen = ({ onComplete }) => {
             <div className="splash-content">
                 <motion.img
                     src="/logo.png"
-                    alt="Logo"
+                    alt="Andijon IIB Logo"
                     className="splash-logo"
                     initial={{ scale: 0.5, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     transition={{ duration: 1.5, ease: "easeOut" }}
                 />
 
-                <motion.p
-                    className="splash-quote"
-                    initial={{ opacity: 0, y: 20 }}
+                <motion.h1
+                    className="splash-department"
+                    initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 1.5, duration: 1 }}
+                    transition={{ delay: 1.2, duration: 1 }}
                 >
-                    Hech qachon bo'sh kelmang aziz bolalarim ertangi kun bizniki, kelejak marra bizniki...
-                </motion.p>
+                    ANDIJON VILOYATI
+                </motion.h1>
 
                 <motion.h2
-                    className="splash-author"
+                    className="splash-department-sub"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 2.5, duration: 1 }}
+                    transition={{ delay: 1.8, duration: 1 }}
                 >
-                    ISLOM KARIMOV
+                    ICHKI ISHLAR BO'LIMI
                 </motion.h2>
 
                 <motion.p
                     className="splash-title"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    transition={{ delay: 3, duration: 1 }}
+                    transition={{ delay: 2.8, duration: 1 }}
                 >
-                    O'zbekiston Respublikasi Birinchi Prezidenti
+                    Sun'iy Intellekt Maslahat Tizimi
                 </motion.p>
+
+                <motion.div
+                    className="splash-loading"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 4, duration: 0.5 }}
+                >
+                    <div className="splash-loading-bar">
+                        <motion.div
+                            className="splash-loading-fill"
+                            initial={{ width: '0%' }}
+                            animate={{ width: '100%' }}
+                            transition={{ delay: 4, duration: 4, ease: 'linear' }}
+                        />
+                    </div>
+                </motion.div>
             </div>
         </motion.div>
     );

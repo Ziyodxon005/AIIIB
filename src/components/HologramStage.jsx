@@ -2,29 +2,8 @@ import React, { useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import AudioVisualizer from './AudioVisualizer';
 
-// Video sources for each persona
-const PERSONA_VIDEOS = {
-    navoi: {
-        idle: '/alisher 1.mp4',
-        greeting: '/alisher 2.mp4',
-        speaking: '/alisher 3.mp4'
-    },
-    temur: {
-        idle: '/temur 1.mp4',
-        greeting: '/temur 1.mp4',
-        speaking: '/temur 1.mp4'
-    },
-    babur: {
-        idle: '/bobur 1.mp4',
-        greeting: '/bobur 1.mp4',
-        speaking: '/bobur 1.mp4'
-    },
-    karimov: {
-        idle: '/islom karimov 1.mp4',
-        greeting: '/islom karimov 1.mp4',
-        speaking: '/islom karimov 1.mp4'
-    }
-};
+// General uchun bitta video manba
+const GENERAL_VIDEO = '/general.mp4';
 
 const HologramStage = ({
     currentPersonaId,
@@ -35,46 +14,19 @@ const HologramStage = ({
     personaName,
     personaState = 'idle'
 }) => {
-    const idleVideoRef = useRef(null);
-    const greetingVideoRef = useRef(null);
-    const speakingVideoRef = useRef(null);
+    const mainVideoRef = useRef(null);
 
-    // Get video sources for current persona
-    const videoSources = PERSONA_VIDEOS[currentPersonaId] || PERSONA_VIDEOS.navoi;
-
-    // Play/pause videos based on personaState
+    // Video holati o'zgarganda play/pause
     useEffect(() => {
-        console.log('🎬 HologramStage personaState:', personaState, 'isLive:', isLive, 'persona:', currentPersonaId);
+        const video = mainVideoRef.current;
+        if (!video) return;
 
-        const videos = {
-            idle: idleVideoRef.current,
-            greeting: greetingVideoRef.current,
-            speaking: speakingVideoRef.current
-        };
-
-        // Play the active video, pause others
-        Object.entries(videos).forEach(([state, video]) => {
-            if (video) {
-                if (state === personaState && isLive) {
-                    console.log('▶️ Playing video:', state);
-                    video.play().catch(err => console.log('Video autoplay blocked:', err));
-                } else {
-                    video.pause();
-                }
-            }
-        });
-    }, [personaState, isLive, currentPersonaId]);
-
-    // Preload all videos when live
-    useEffect(() => {
         if (isLive) {
-            [idleVideoRef, greetingVideoRef, speakingVideoRef].forEach(ref => {
-                if (ref.current) {
-                    ref.current.load();
-                }
-            });
+            video.play().catch(err => console.log('Video autoplay blocked:', err));
+        } else {
+            video.pause();
         }
-    }, [isLive]);
+    }, [isLive, currentPersonaId]);
 
     return (
         <motion.div
@@ -92,20 +44,20 @@ const HologramStage = ({
 
             {/* Character Display */}
             <div className="absolute inset-0 flex flex-col items-center justify-center p-8">
-                {/* Animation Videos - Stacked with alpha transitions */}
+                {/* General Video */}
                 <motion.div
                     className="character-video-container"
                     animate={{ scale: 1 + volume * 0.15 }}
                     transition={{ duration: 0.1 }}
                     style={{ position: 'relative' }}
                 >
-                    {/* Idle Video */}
                     <video
-                        ref={idleVideoRef}
-                        src={videoSources.idle}
+                        ref={mainVideoRef}
+                        src={GENERAL_VIDEO}
                         muted
                         loop
                         playsInline
+                        autoPlay
                         style={{
                             width: '100%',
                             height: '100%',
@@ -113,49 +65,9 @@ const HologramStage = ({
                             position: 'absolute',
                             top: 0,
                             left: 0,
-                            opacity: personaState === 'idle' ? 1 : 0,
+                            opacity: 1,
                             transition: 'opacity 0.5s ease-in-out',
-                            filter: isLive ? 'none' : 'grayscale(50%) brightness(0.7)',
-                        }}
-                    />
-
-                    {/* Greeting Video */}
-                    <video
-                        ref={greetingVideoRef}
-                        src={videoSources.greeting}
-                        muted
-                        loop
-                        playsInline
-                        style={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            opacity: personaState === 'greeting' ? 1 : 0,
-                            transition: 'opacity 0.5s ease-in-out',
-                            filter: isLive ? 'none' : 'grayscale(50%) brightness(0.7)',
-                        }}
-                    />
-
-                    {/* Speaking Video */}
-                    <video
-                        ref={speakingVideoRef}
-                        src={videoSources.speaking}
-                        muted
-                        loop
-                        playsInline
-                        style={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            opacity: personaState === 'speaking' ? 1 : 0,
-                            transition: 'opacity 0.5s ease-in-out',
-                            filter: isLive ? 'none' : 'grayscale(50%) brightness(0.7)',
+                            filter: isLive ? 'none' : 'grayscale(30%) brightness(0.8)',
                         }}
                     />
 
@@ -165,14 +77,16 @@ const HologramStage = ({
 
                 {/* Character Name */}
                 <h2 className="gold-calligraphy text-2xl mt-6 text-center">
-                    {personaName}
+                    {personaName || 'Andijon IIB Maslahatchisi'}
                 </h2>
 
                 {/* Status Text */}
                 <p className="text-xs tracking-widest mt-4" style={{ color: isLive ? '#00f3ff' : '#666' }}>
                     {isLive
-                        ? (isVisionEnabled ? 'KO\'RISH FAOL' : 'OVOZ ALOQASI')
-                        : 'KUTILMOQDA'}
+                        ? (personaState === 'speaking' || personaState === 'greeting'
+                            ? 'JAVOB BERILMOQDA'
+                            : (isVisionEnabled ? 'KO\'RISH FAOL' : 'ESHITILMOQDA'))
+                        : 'ULANMOQDA...'}
                 </p>
             </div>
 

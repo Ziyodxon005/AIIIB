@@ -8,7 +8,7 @@ export function useGeminiLive() {
     const [isVisionEnabled, setIsVisionEnabled] = useState(false);
     const [isMicMuted, setIsMicMuted] = useState(false);
     const [permissionError, setPermissionError] = useState(null);
-    const [personaState, setPersonaState] = useState('idle'); // 'idle' | 'greeting' | 'speaking'
+    const [personaState, setPersonaState] = useState('idle');
     const [isAISpeaking, setIsAISpeaking] = useState(false);
 
     const clientRef = useRef(null);
@@ -17,20 +17,20 @@ export function useGeminiLive() {
     const visionIntervalRef = useRef(null);
     const visionTimeoutRef = useRef(null);
     const isMicMutedRef = useRef(false);
-    const greetingSentRef = useRef(false); // Track if greeting was already sent
-    const speakingTimeoutRef = useRef(null); // Track speaking timeout
-    const isGreetingRef = useRef(false); // Track if currently in greeting phase
-    const currentApiKeyRef = useRef(1); // Track which API key is being used (1 or 2)
-    const pendingReconnectRef = useRef(null); // Store pending reconnect params
+    const isAISpeakingRef = useRef(false);
+    const greetingSentRef = useRef(false);
+    const speakingTimeoutRef = useRef(null);
+    const isGreetingRef = useRef(false);
+    const currentApiKeyRef = useRef(1);
+    const pendingReconnectRef = useRef(null);
 
     useEffect(() => {
-        // Volume polling loop
         let interval;
         if (isLive && !isMicMuted) {
             interval = setInterval(() => {
-                const vol = audioStreamerRef.current.getVolume();
+                const vol = audioStreamerRef.current?.getVolume() ?? 0;
                 setVolume(vol);
-            }, 50); // 20fps
+            }, 50);
         } else {
             setVolume(0);
         }
@@ -51,109 +51,99 @@ export function useGeminiLive() {
     }, []);
 
     const connect = useCallback(async (apiKey, systemInstruction, voiceName = 'Kore', isRetry = false) => {
-        // Reset greeting flag for new connection
-        greetingSentRef.current = false;
-
-        // Store connection params for potential retry
+        // Only reset greeting for completely new session (not retries)
+        if (!isRetry) greetingSentRef.current = false;
         pendingReconnectRef.current = { systemInstruction, voiceName };
 
-        // Determine which API key to use
         let activeApiKey = apiKey;
         if (isRetry && currentApiKeyRef.current === 1) {
             const secondKey = import.meta.env.VITE_GEMINI_API_KEY2;
             if (secondKey) {
-                console.log('⚠️ API Key 1 limit - switching to API Key 2...');
                 currentApiKeyRef.current = 2;
                 activeApiKey = secondKey;
             }
         }
 
         try {
-            // First check mic permission
             const hasMicPermission = await requestMicPermission();
             if (!hasMicPermission) {
-                alert("Mikrofon ruxsati kerak! Iltimos, mikrofon ruxsatini bering va qayta urinib ko'ring.");
+                alert("Mikrofon ruxsati kerak!");
                 return;
             }
 
+            // Fresh AudioStreamer for each new connection
+            audioStreamerRef.current.stop();
+            audioStreamerRef.current = new AudioStreamer();
+
             const client = new GeminiLiveClient(activeApiKey);
+
             client.onAudioData = (base64Audio) => {
-                audioStreamerRef.current.playAudioChunk(base64Audio);
-
-                // AI is speaking - update persona state
+                audioStreamerRef.current?.playAudioChunk(base64Audio);
                 setIsAISpeaking(true);
+                setPersonaState(isGreetingRef.current ? 'greeting' : 'speaking');
 
-                // Set appropriate state based on greeting phase
-                if (isGreetingRef.current) {
-                    console.log('🎤 Audio received - Setting state to GREETING');
-                    setPersonaState('greeting');
-                } else {
-                    console.log('🎤 Audio received - Setting state to SPEAKING');
-                    setPersonaState('speaking');
-                }
+                // Block mic while AI is speaking (echo prevention)
+                isAISpeakingRef.current = true;
 
-                // Reset speaking timeout - if no audio for 1500ms, go back to idle
-                if (speakingTimeoutRef.current) {
-                    clearTimeout(speakingTimeoutRef.current);
-                }
+                if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
                 speakingTimeoutRef.current = setTimeout(() => {
-                    console.log('⏸️ No audio for 1500ms - Setting state to IDLE');
+                    isAISpeakingRef.current = false;
                     setIsAISpeaking(false);
                     setPersonaState('idle');
-                    isGreetingRef.current = false; // Greeting is done
-                }, 1500);
+                    isGreetingRef.current = false;
+                }, 500);
+            };
+
+            // When AI finishes turn - immediately unlock mic
+            client.onTurnComplete = () => {
+                if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
+                setTimeout(() => {
+                    isAISpeakingRef.current = false;
+                    setIsAISpeaking(false);
+                    setPersonaState('idle');
+                    isGreetingRef.current = false;
+                }, 300);
             };
 
             client.onOpen = async () => {
                 setIsLive(true);
-                // Start recording microphone
                 try {
                     await audioStreamerRef.current.startRecording((base64Input) => {
-                        if (!isMicMutedRef.current) {
+                        if (!isMicMutedRef.current && !isAISpeakingRef.current) {
                             client.sendAudioChunk(base64Input);
                         }
                     });
 
-                    // Trigger greeting after connection - ask AI to introduce itself (ONLY ONCE)
                     if (!greetingSentRef.current) {
                         greetingSentRef.current = true;
-                        isGreetingRef.current = true; // Mark as greeting phase
+                        isGreetingRef.current = true;
                         setTimeout(() => {
-                            console.log('Sending greeting trigger (once)...');
-                            client.sendTextMessage("Salom! O'zingizni tanishtiring.");
+                            client.sendTextMessage("Boshlang");
                         }, 500);
                     }
-
                 } catch (error) {
                     console.error("Mic recording error", error);
                     setPermissionError('mic');
-                    alert("Mikrofon ishlamayapti. Iltimos, mikrofon ruxsatini tekshiring.");
+                    alert("Mikrofon ishlamayapti!");
                 }
             };
 
             client.onClose = (event) => {
                 console.log('WebSocket closed:', event?.code, event?.reason);
                 setIsLive(false);
-                audioStreamerRef.current.stop();
+                audioStreamerRef.current?.stop();
                 stopVision();
 
-                // Check if rate limit error (code 1008 or reason contains rate/limit/quota)
                 const reason = event?.reason?.toLowerCase() || '';
                 const isRateLimit = event?.code === 1008 ||
-                    reason.includes('rate') ||
-                    reason.includes('limit') ||
-                    reason.includes('quota') ||
-                    reason.includes('resource_exhausted');
+                    reason.includes('rate') || reason.includes('limit') ||
+                    reason.includes('quota') || reason.includes('resource_exhausted');
 
-                // Auto-retry with second key if rate limited and first key was used
                 if (isRateLimit && currentApiKeyRef.current === 1 && pendingReconnectRef.current) {
                     const { systemInstruction, voiceName } = pendingReconnectRef.current;
                     const secondKey = import.meta.env.VITE_GEMINI_API_KEY2;
                     if (secondKey) {
-                        console.log('🔄 Rate limited - auto-retrying with API Key 2...');
-                        setTimeout(() => {
-                            connect(secondKey, systemInstruction, voiceName, true);
-                        }, 1000);
+                        setTimeout(() => connect(secondKey, systemInstruction, voiceName, true), 1000);
                     }
                 }
             };
@@ -167,138 +157,86 @@ export function useGeminiLive() {
         }
     }, [isMicMuted]);
 
+    const stopVision = useCallback(() => {
+        setIsVisionEnabled(false);
+        if (visionIntervalRef.current) { clearInterval(visionIntervalRef.current); visionIntervalRef.current = null; }
+        if (visionTimeoutRef.current) { clearTimeout(visionTimeoutRef.current); visionTimeoutRef.current = null; }
+        if (videoRef.current?.srcObject) {
+            videoRef.current.srcObject.getTracks().forEach(t => t.stop());
+            videoRef.current.srcObject = null;
+        }
+    }, []);
+
     const disconnect = useCallback(() => {
-        console.log('Disconnect: Fully stopping mic, camera, and connection');
-
-        // Stop microphone completely
-        audioStreamerRef.current.stop();
-
-        // Stop camera/vision
+        audioStreamerRef.current?.stop();
         stopVision();
 
-        // Clear speaking timeout
         if (speakingTimeoutRef.current) {
             clearTimeout(speakingTimeoutRef.current);
             speakingTimeoutRef.current = null;
         }
 
-        // Close WebSocket connection
         if (clientRef.current) {
             clientRef.current.disconnect();
             clientRef.current = null;
         }
 
-        // Reset states
         setIsLive(false);
         setIsMicMuted(false);
         isMicMutedRef.current = false;
         setPersonaState('idle');
         setIsAISpeaking(false);
         isGreetingRef.current = false;
-    }, []);
+    }, [stopVision]);
 
     const toggleMic = useCallback(() => {
-        console.log('toggleMic called, current state:', isMicMutedRef.current);
-
         if (!isMicMutedRef.current) {
-            // MUTE - Only pause microphone recording (AI audio continues)
-            console.log('PAUSING microphone only (audio output continues)...');
             isMicMutedRef.current = true;
             setIsMicMuted(true);
-            audioStreamerRef.current.pauseRecording();
-            console.log('Microphone PAUSED');
+            audioStreamerRef.current?.pauseRecording();
         } else {
-            // UNMUTE - Resume microphone recording
-            console.log('RESUMING microphone...');
             isMicMutedRef.current = false;
             setIsMicMuted(false);
-            audioStreamerRef.current.resumeRecording();
-            console.log('Microphone RESUMED');
+            audioStreamerRef.current?.resumeRecording();
         }
     }, []);
 
     const startVision = useCallback(async () => {
         if (!videoRef.current || !clientRef.current || !isLive) return;
-
         try {
-            // Request camera permission
             const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
-
             setIsVisionEnabled(true);
             videoRef.current.srcObject = stream;
             videoRef.current.play();
 
-            // Capture loop every 1.5s
             visionIntervalRef.current = setInterval(() => {
-                captureAndSendFrame();
+                const video = videoRef.current;
+                if (!video?.videoWidth) return;
+                const canvas = document.createElement('canvas');
+                const scale = Math.min(1, 480 / video.videoWidth);
+                canvas.width = video.videoWidth * scale;
+                canvas.height = video.videoHeight * scale;
+                canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+                const base64 = canvas.toDataURL('image/jpeg', 0.5).split(',')[1];
+                clientRef.current?.sendVideoFrame(base64);
             }, 1500);
 
-            // Auto-stop after 10 seconds
-            visionTimeoutRef.current = setTimeout(() => {
-                stopVision();
-            }, 10000);
+            visionTimeoutRef.current = setTimeout(() => stopVision(), 10000);
         } catch (err) {
             console.error("Camera error", err);
             setPermissionError('camera');
-            alert("Kamera ruxsati kerak! Iltimos, kamera ruxsatini bering va qayta urinib ko'ring.");
+            alert("Kamera ruxsati kerak!");
         }
-    }, [isLive]);
-
-    const stopVision = useCallback(() => {
-        setIsVisionEnabled(false);
-        if (visionIntervalRef.current) {
-            clearInterval(visionIntervalRef.current);
-            visionIntervalRef.current = null;
-        }
-        if (visionTimeoutRef.current) {
-            clearTimeout(visionTimeoutRef.current);
-            visionTimeoutRef.current = null;
-        }
-        if (videoRef.current && videoRef.current.srcObject) {
-            videoRef.current.srcObject.getTracks().forEach(t => t.stop());
-            videoRef.current.srcObject = null;
-        }
-    }, []);
-
-    const captureAndSendFrame = () => {
-        const video = videoRef.current;
-        if (!video.videoWidth) return;
-
-        const canvas = document.createElement('canvas');
-        const scale = Math.min(1, 480 / video.videoWidth);
-        canvas.width = video.videoWidth * scale;
-        canvas.height = video.videoHeight * scale;
-
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-        const base64 = canvas.toDataURL('image/jpeg', 0.5).split(',')[1];
-        if (clientRef.current) {
-            clientRef.current.sendVideoFrame(base64);
-        }
-    };
+    }, [isLive, stopVision]);
 
     const toggleVision = useCallback(() => {
-        if (isVisionEnabled) {
-            stopVision();
-        } else {
-            startVision();
-        }
+        isVisionEnabled ? stopVision() : startVision();
     }, [isVisionEnabled, startVision, stopVision]);
 
     return {
-        isLive,
-        volume,
-        connect,
-        disconnect,
-        videoRef,
-        isVisionEnabled,
-        toggleVision,
-        isMicMuted,
-        toggleMic,
-        permissionError,
-        personaState,
-        isAISpeaking
+        isLive, volume, connect, disconnect,
+        videoRef, isVisionEnabled, toggleVision,
+        isMicMuted, toggleMic,
+        permissionError, personaState, isAISpeaking
     };
 }
-
