@@ -28,23 +28,7 @@ const SplashScreen = ({ onComplete }) => {
                     transition={{ duration: 1.5, ease: "easeOut" }}
                 />
 
-                <motion.h1
-                    className="splash-department"
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 1.2, duration: 1 }}
-                >
-                    ANDIJON VILOYATI
-                </motion.h1>
 
-                <motion.h2
-                    className="splash-department-sub"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 1.8, duration: 1 }}
-                >
-                    ICHKI ISHLAR BO'LIMI
-                </motion.h2>
 
                 <motion.p
                     className="splash-title"

@@ -65,7 +65,6 @@ const ConversationPage = ({ personaId, onBack }) => {
                 </motion.button>
 
                 <div className="conversation-title">
-                    <h2 className="gold-calligraphy">ANDIJON VILOYATI IIB</h2>
                     <p>Sun'iy Intellekt Maslahat Tizimi</p>
                 </div>
 
