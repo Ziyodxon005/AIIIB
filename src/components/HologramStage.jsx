@@ -1,9 +1,9 @@
-import React, { useRef, useEffect } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import AudioVisualizer from './AudioVisualizer';
 
-// General uchun bitta video manba
-const GENERAL_VIDEO = '/general.mp4';
+// General uchun statik rasm
+const GENERAL_IMAGE = '/general.jpg';
 
 const HologramStage = ({
     currentPersonaId,
@@ -14,19 +14,6 @@ const HologramStage = ({
     personaName,
     personaState = 'idle'
 }) => {
-    const mainVideoRef = useRef(null);
-
-    // Video holati o'zgarganda play/pause
-    useEffect(() => {
-        const video = mainVideoRef.current;
-        if (!video) return;
-
-        if (isLive) {
-            video.play().catch(err => console.log('Video autoplay blocked:', err));
-        } else {
-            video.pause();
-        }
-    }, [isLive, currentPersonaId]);
 
     return (
         <motion.div
@@ -44,20 +31,16 @@ const HologramStage = ({
 
             {/* Character Display */}
             <div className="absolute inset-0 flex flex-col items-center justify-center p-8">
-                {/* General Video */}
+                {/* General Rasm */}
                 <motion.div
                     className="character-video-container"
                     animate={{ scale: 1 + volume * 0.15 }}
                     transition={{ duration: 0.1 }}
                     style={{ position: 'relative' }}
                 >
-                    <video
-                        ref={mainVideoRef}
-                        src={GENERAL_VIDEO}
-                        muted
-                        loop
-                        playsInline
-                        autoPlay
+                    <img
+                        src={GENERAL_IMAGE}
+                        alt="General"
                         style={{
                             width: '100%',
                             height: '100%',
@@ -65,9 +48,9 @@ const HologramStage = ({
                             position: 'absolute',
                             top: 0,
                             left: 0,
-                            opacity: 1,
-                            transition: 'opacity 0.5s ease-in-out',
+                            transition: 'filter 0.5s ease-in-out',
                             filter: isLive ? 'none' : 'grayscale(30%) brightness(0.8)',
+                            borderRadius: 'inherit',
                         }}
                     />
 
