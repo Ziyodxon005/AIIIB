@@ -620,8 +620,8 @@ body {
 
 /* === CHARACTER VIDEO CONTAINER === */
 .character-video-container {
-  width: 200px;
-  height: 200px;
+  width: 252px;
+  height: 252px;
   border-radius: 50%;
   overflow: hidden;
   border: 3px solid var(--color-regal-gold);
@@ -1201,8 +1201,8 @@ body {
 
   /* Video panel - larger and centered */
   .character-video-container {
-    width: 160px !important;
-    height: 160px !important;
+    width: 212px !important;
+    height: 212px !important;
   }
 
   /* Name below video */
@@ -1375,8 +1375,8 @@ body {
   }
 
   .character-video-container {
-    width: 120px !important;
-    height: 120px !important;
+    width: 172px !important;
+    height: 172px !important;
   }
 
   .hologram-container .gold-calligraphy.text-2xl {
