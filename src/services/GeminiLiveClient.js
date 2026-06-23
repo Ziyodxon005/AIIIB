@@ -9,6 +9,9 @@ export class GeminiLiveClient {
         this.onError = null;
         this.onTurnComplete = null;
         this.onInterrupted = null;
+        this.onSourceUrl = null;
+        this._shownUrls = new Set();
+        this._hasGroundingCurrentTurn = false;
     }
 
     connect(systemInstruction, voiceName = 'Kore') {
@@ -117,23 +120,120 @@ export class GeminiLiveClient {
         }
     }
 
+    // Recursively extract all http(s) URLs from anywhere in the response object
+    _extractAllUrls(obj, found = []) {
+        if (!obj || typeof obj === 'number' || typeof obj === 'boolean') return found;
+        if (typeof obj === 'string') {
+            // Skip base64 blobs (very long strings)
+            if (obj.length > 2000) return found;
+            const matches = obj.match(/https?:\/\/[^\s)"'<>,\]]+/g) || [];
+            matches.forEach(u => found.push(u));
+            return found;
+        }
+        if (Array.isArray(obj)) {
+            obj.forEach(item => this._extractAllUrls(item, found));
+            return found;
+        }
+        if (typeof obj === 'object') {
+            Object.entries(obj).forEach(([key, val]) => {
+                // Skip inlineData — it's audio/image base64, no URLs
+                if (key === 'inlineData' || key === 'data') return;
+                this._extractAllUrls(val, found);
+            });
+        }
+        return found;
+    }
+
+    // Block obvious technical/namespace/CDN URLs — pass everything else
+    _isValidSourceUrl(url) {
+        try {
+            const host = new URL(url).hostname.toLowerCase();
+            const blocked = [
+                'w3.org', 'schema.org', 'xmlsoap.org',
+                'openxmlformats.org', 'xmlns.com', 'purl.org',
+                'gstatic.com', 'googletagmanager.com',
+                'doubleclick.net', 'ampproject.org',
+            ];
+            if (blocked.some(b => host.includes(b))) return false;
+            if (!host.includes('.')) return false;
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+
     handleMessage(response) {
         // AI interrupted (user spoke over it)
         if (response.serverContent?.interrupted) {
-            console.log('⚡ AI interrupted by user');
+            console.log('AI interrupted by user');
+            this._shownUrls.clear();
+            this._hasGroundingCurrentTurn = false;
             if (this.onInterrupted) this.onInterrupted();
             return;
         }
 
-        if (response.serverContent && response.serverContent.modelTurn) {
-            const parts = response.serverContent.modelTurn.parts;
+        // Reset shown URLs on new turn start (first audio chunk signals new turn)
+        if (response.serverContent?.modelTurn) {
+            const parts = response.serverContent.modelTurn.parts || [];
+            const hasAudio = parts.some(p => p.inlineData?.mimeType?.startsWith('audio/pcm'));
+            if (hasAudio && !this._hasGroundingCurrentTurn && this._shownUrls.size === 0) {
+                // New turn starting, reset
+                this._hasGroundingCurrentTurn = false;
+            }
             for (const part of parts) {
-                if (part.inlineData && part.inlineData.mimeType.startsWith("audio/pcm")) {
+                if (part.inlineData?.mimeType?.startsWith("audio/pcm")) {
                     if (this.onAudioData) this.onAudioData(part.inlineData.data);
                 }
             }
         }
-        if (response.serverContent && response.serverContent.turnComplete) {
+
+        // === GROUNDING URL EXTRACTION ===
+        if (this.onSourceUrl) {
+            const grounding = response.serverContent?.groundingMetadata;
+
+            if (grounding) {
+                // PRIORITY 1: groundingChunks — actual source URLs (when available)
+                const chunks = grounding.groundingChunks || [];
+                let foundChunk = false;
+                chunks.forEach(chunk => {
+                    const uri = chunk.web?.uri;
+                    const title = chunk.web?.title || uri;
+                    if (uri && !this._shownUrls.has(uri)) {
+                        foundChunk = true;
+                        this._hasGroundingCurrentTurn = true;
+                        this._shownUrls.add(uri);
+                        this.onSourceUrl(uri, title);
+                    }
+                });
+
+                // PRIORITY 2: webSearchQueries → direct lex.uz search URL
+                // (Gemini Live API rarely returns groundingChunks, so this is the main path)
+                if (!foundChunk) {
+                    const queries = grounding.webSearchQueries || [];
+                    queries.forEach(query => {
+                        const cleanQuery = query.replace(/site:\S+\s*/gi, '').trim();
+                        if (!cleanQuery) return;
+
+                        // Always link to lex.uz — the source for Uzbek laws
+                        const url = 'https://lex.uz';
+
+                        if (!this._shownUrls.has(url)) {
+                            this._shownUrls.add(url);
+                            this._hasGroundingCurrentTurn = true;
+                            this.onSourceUrl(url, cleanQuery);
+                        }
+                    });
+                }
+            }
+        }
+
+
+
+        if (response.serverContent?.turnComplete) {
+            // Reset for next turn
+            this._shownUrls.clear();
+            this._hasGroundingCurrentTurn = false;
             if (this.onTurnComplete) this.onTurnComplete();
         }
     }
@@ -143,5 +243,6 @@ export class GeminiLiveClient {
             this.ws.close();
             this.ws = null;
         }
+        this._shownUrls.clear();
     }
 }

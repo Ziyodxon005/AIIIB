@@ -5,6 +5,7 @@ import { useGeminiLive } from '../hooks/useGeminiLive';
 import { PERSONAS } from '../utils/personas';
 import { Mic, MicOff, Eye, EyeOff, X, ArrowLeft } from 'lucide-react';
 import Particles from './Particles';
+import SourceToast from './SourceToast';
 
 const ConversationPage = ({ personaId, onBack }) => {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
@@ -18,7 +19,9 @@ const ConversationPage = ({ personaId, onBack }) => {
         toggleVision,
         isMicMuted,
         toggleMic,
-        personaState
+        personaState,
+        sourceUrl,
+        setSourceUrl
     } = useGeminiLive();
 
     const persona = PERSONAS[personaId] || PERSONAS['general'];
@@ -131,6 +134,12 @@ const ConversationPage = ({ personaId, onBack }) => {
                     <X size={22} />
                 </motion.button>
             </div>
+
+            {/* Source URL Toast */}
+            <SourceToast
+                source={sourceUrl}
+                onClose={() => setSourceUrl(null)}
+            />
         </motion.div>
     );
 };

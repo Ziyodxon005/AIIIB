@@ -10,6 +10,7 @@ export function useGeminiLive() {
     const [permissionError, setPermissionError] = useState(null);
     const [personaState, setPersonaState] = useState('idle');
     const [isAISpeaking, setIsAISpeaking] = useState(false);
+    const [sourceUrl, setSourceUrl] = useState(null);
 
     const clientRef = useRef(null);
     const audioStreamerRef = useRef(new AudioStreamer());
@@ -77,10 +78,19 @@ export function useGeminiLive() {
 
             const client = new GeminiLiveClient(activeApiKey);
 
+            // Buffer: store URL the moment grounding arrives
+            const pendingSourceRef = { current: null };
+
             client.onAudioData = (base64Audio) => {
                 audioStreamerRef.current?.playAudioChunk(base64Audio);
                 setIsAISpeaking(true);
                 setPersonaState(isGreetingRef.current ? 'greeting' : 'speaking');
+
+                // Flush pending source URL on FIRST audio chunk of turn
+                if (pendingSourceRef.current) {
+                    setSourceUrl(pendingSourceRef.current);
+                    pendingSourceRef.current = null;
+                }
 
                 // Block mic while AI is speaking (echo prevention)
                 isAISpeakingRef.current = true;
@@ -92,6 +102,19 @@ export function useGeminiLive() {
                     setPersonaState('idle');
                     isGreetingRef.current = false;
                 }, 150);
+            };
+
+            // URL from Google Search grounding → show toast immediately
+            client.onSourceUrl = (url, title) => {
+                const payload = { url, title, id: Date.now() };
+                // If AI already speaking: show now; else buffer until audio starts
+                if (isAISpeakingRef.current) {
+                    setSourceUrl(payload);
+                } else {
+                    pendingSourceRef.current = payload;
+                    // Also set immediately so it shows if audio never comes
+                    setSourceUrl(payload);
+                }
             };
 
             // When AI finishes turn - immediately unlock mic
@@ -235,6 +258,7 @@ export function useGeminiLive() {
         isLive, volume, connect, disconnect,
         videoRef, isVisionEnabled, toggleVision,
         isMicMuted, toggleMic,
-        permissionError, personaState, isAISpeaking
+        permissionError, personaState, isAISpeaking,
+        sourceUrl, setSourceUrl
     };
 }
